@@ -1,0 +1,8 @@
+Type,n,minHeight,maxHeight,meanHeight,minDiam,maxDiam,meanDiam
+Burial Mound,151,0,15,2.16,8,140,28.72
+Other,49,0,3,1.1,0,20,7.22
+Extinct Burial Mound,31,0,2.5,0.64,0,100,13.32
+Surface Scatter,31,0,0.01,0,0,500,162
+Uncertain Feature,18,0,2,0.86,0,100,21.33
+Burial Mound?,1,1.2,1.2,1.2,8,8,8
+Tell,1,0.01,0.01,0.01,Inf,-Inf,NaN
