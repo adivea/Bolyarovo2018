@@ -248,7 +248,7 @@ map <- leaflet() %>%
   addProviderTiles("Esri.WorldImagery", group = "ESRI Aerial") %>%
   addCircleMarkers(lng = as.numeric(m2018$Longitude),
                    lat = as.numeric(m2018$Latitude),
-                   radius = m2018$HeightMax, group="Legacy",
+                   #radius = m2018$HeightMax, group="Legacy",
                    radius = m2018$Condition, group="Legacy",
                    popup = paste0("MoundID: ", m2018$identifier,
                                   "<br> Height: ", m2018$HeightMax,
@@ -265,7 +265,7 @@ map
 unique(m2018$Condition)
 TypeM
 
-m2018 <- m2018 %>%
+m <- m2018 %>%
   mutate(Condition = str_extract(Condition, "\\d")) %>%
   mutate(Condition = case_when(Condition == 0 ~ "NA",
                              #  Condition == 6 ~ "5",
@@ -276,13 +276,12 @@ m2018$Condition
 map <- leaflet() %>% 
   addProviderTiles("Esri.WorldTopoMap", group = "Topo") %>%
   addProviderTiles("Esri.WorldImagery", group = "ESRI Aerial") %>%
-  addCircleMarkers(lng = as.numeric(m2018$Longitude),
-                   lat = as.numeric(m2018$Latitude),
-                  # radius = m2018$HeightMax, group="Legacy",
-                   radius = m2018$Condition, group="Legacy",
-                   popup = paste0("MoundID: ", m2018$identifier,
-                                  "<br> Height: ", m2018$HeightMax,
-                                  "<br> Robber's trenches: ", m2018$RTDescription)) %>% 
+  addCircleMarkers(data = st_transform(Bol_mounds$geometry, crs = 4326),
+                   radius = m2018$HeightMax, group="Legacy",
+                   # radius = m$Condition, group="Legacy",
+                   popup = paste0("MoundID: ", m$identifier,
+                                  "<br> Height: ", m$HeightMax,
+                                  "<br> Robber's trenches: ", m$RTDescription)) %>% 
   addLayersControl(
     baseGroups = c("Topo","ESRI Aerial"),
     overlayGroups = c("Legacy"),
@@ -291,31 +290,40 @@ map <- leaflet() %>%
 map
 
 
+##### Improved Leaflet map  - switch on internet!
+library(leaflet)
+l_bol <- leaflet() %>%   # assign the base location to an object
+  setView(26.80, 42.15, zoom = 10)
+  
 
-##### SIMPLE FEATURES
-library(sf)
-library(raster)
-library(tidyverse)
 
-# make Bolyarovo mounds into an sf feature
-Bolyarovo <- m2018 %>% 
-  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326)  # these are Lat Long so 4326 is the projection
-plot(Bolyarovo$geometry)
+esri <- grep("^Esri", providers, value = TRUE)
 
-# read in Yambol municipality boundaries and check projection
-Yam_municipality <- st_read("~/Desktop/TRAP_Oxbow/StudyAreaBoundaries/Yam_Municipalities.shp")
-st_crs(Yam_municipality)  # 32635 is the projection
+for (provider in esri) {
+  l_bol <- l_bol %>% addProviderTiles(provider, group = provider)
+}
 
-plot(Yam_municipality$geometry)
-Bol_mun <- Yam_municipality %>% 
-  filter(Name_en == "Bolyarovo")
+Blgmap <- l_bol %>%
+  addLayersControl(baseGroups = names(esri),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  addMiniMap(tiles = esri[[1]], toggleDisplay = TRUE,
+             position = "bottomright") %>%
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479") %>% 
+  htmlwidgets::onRender("
+                        function(el, x) {
+                        var myMap = this;
+                        myMap.on('baselayerchange',
+                        function (e) {
+                        myMap.minimap.changeLayer(L.tileLayer.provider(e.name));
+                        })
+                        }") %>% 
+  addControl("", position = "topright")
+Blgmap %>% 
+  addCircleMarkers(data = st_transform(Bol_mounds$geometry, crs = 4326))
 
-# plot the two datasets over one another, projecting on the fly
-plot(Bol_mun$geometry);plot(st_transform(Bolyarovo$geometry, crs = 32635), col = "red", add = TRUE)
 
-# clip to the Bolyarovo area, 237 features  remain
-Bol_mounds <- Bolyarovo %>%
-  st_transform(crs= 32635) %>% 
-  st_intersection(Bol_mun$geometry)
-
-plot(Bol_mun$geometry);plot(Bol_mounds$geometry, col = "red", add = TRUE)

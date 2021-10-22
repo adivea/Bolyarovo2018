@@ -50,7 +50,7 @@ st_area(Bol_mun)/1000000 # in sq km
 
 
 # Visualize: Plot the two datasets over one another, projecting on the fly
-```{r plot admin}
+```{r plot-boundaries}
 plot(Bol_mun$geometry);plot(st_transform(Bolyarovo$geometry, crs = 32635), col = "red", add = TRUE)
 
 ```
