@@ -3,25 +3,26 @@
 
 # libraries
 library(tidyverse)
+library(googlesheets4)
 
-colnames(m2018)
-dim(m2018)
-m2018$Latitude[1:5]
+# load data
+m18 <- read_csv("data/Bolyarovo2018clean.csv")
+m2018 <- read_sheet("https://docs.google.com/spreadsheets/d/1XCgQqd7ooP4CrDYQ2EmhR3_P1VDFpYlyTxywTB3PqWI/edit#gid=1326323943") 
 
 
 #check goodness of data
-summary(m2018$HeightMax) # sanity check of heights range
-hist(m2018$HeightMax, na.rm = TRUE)
-which(m2018$HeightMax[m2018$Type!="Settlement Mound"]>7) # 3 features are over 7 m
+colnames(m2018)
+summary(as.numeric(m2018$HeightMax)) # sanity check of heights range
+hist(as.numeric(m2018$HeightMax), na.rm = TRUE)
 
 
 # check categories of mound type (via conversion to factor) 
 m2018 %>% 
-  group_by(Type) %>% 
+  group_by(Type_Adela) %>% 
   tally()
 
 m2018 %>% 
-  filter(Type == "Burial Mound?") %>% 
+  filter(Type_Adela == "Burial Mound?") %>% 
   select(TRAP, createdBy,Date, Source, DescriptionOfMoundOrLocale, AllNotes, CommentsAndRecommendations)
 
 m2018 %>% 
@@ -30,6 +31,49 @@ m2018 %>%
 # ok, diameter is character
 
 m2018$DiameterMax <- as.numeric(m2018$DiameterMax)
+
+#### COndition
+
+m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" ) %>% 
+  #| Type_Adela == "Uncertain Feature") %>% 
+  group_by(Condition) %>% 
+  summarize(Count = n()) %>% 
+  mutate(Percent = round(Count/sum(Count)*100, digits = 0))
+
+# Check for Bunkers and Military items
+grep("military", m2018$PrincipalSourceOfImpact)
+m_note <- grep("milit*|bunker|tank*", m2018$PrincipalSourceOfImpactNote)
+m_desc <- grep("milit*|bunker|tank*", m2018$DescriptionOfMoundOrLocale)
+m_note %in% m_desc # 5 overlapping 
+
+dim(m2018)  # 282 features
+bunkers <- unique(c(m_note,m_desc)) # 46 military features
+
+m2018[m2018$Type_Adela == "Other",]%in%m2018[bunkers,] # none
+
+m2018 %>% 
+  slice(bunkers) %>% 
+  select(Type_Adela, createdBy) %>% 
+  group_by(Type_Adela, createdBy) %>% 
+  tally()
+
+m2018 %>% 
+  slice(bunkers) %>% 
+  select(Condition, Type_Adela, createdBy) %>% 
+  group_by(Type_Adela, Condition) %>% 
+  tally()
+
+m2018 %>% 
+  # slice(bunkers) %>% 
+  # filter(Type_Adela == "Other") %>% 
+  group_by(Source) %>% 
+  tally()
+
+
+m2018 %>% 
+  filter(Type_Adela == "Other")  # 49 features that are 'other'
 
 # Calculate Height statistics per type of features
 TypeM <- m2018 %>% 
@@ -133,6 +177,21 @@ boxplot(DiameterMax~Type, mound_index,
 
 dev.off()
 
+par(mfrow=c(1,2))  # set plotting into a 1*2 array
+boxplot(HeightMax~Type_Adela, data = mounds_index,
+        main = "Height distribution",
+        xlab = "",  # skip name on x axis
+        ylab = "meters",   # relabel y axis
+        cex.lab = 1.3, #cex = increases symbols in plot, cex.lab - increases axis labels
+        cex.axis = 1,                      #cex.axis = increases data labels
+        las = 1) # rotate y axis 
+boxplot(DiameterMax~Type_Adela, mounds_index,  
+        main = "Diameter distribution",
+        xlab = "",
+        ylab = "meters", cex.lab = 1.3,
+        cex.axis = 1,
+        las = 1) 
+
 ####################################################
 ### Wish to try a Shiny application? 
 ### Run the 02_interactive_data_explorer.R
@@ -204,6 +263,7 @@ map
 
 #### Condition
 unique(m2018$Condition)
+TypeM
 
 m2018 <- m2018 %>%
   mutate(Condition = str_extract(Condition, "\\d")) %>%
@@ -229,3 +289,33 @@ map <- leaflet() %>%
     options = layersControlOptions(collapsed = T))
 
 map
+
+
+
+##### SIMPLE FEATURES
+library(sf)
+library(raster)
+library(tidyverse)
+
+# make Bolyarovo mounds into an sf feature
+Bolyarovo <- m2018 %>% 
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326)  # these are Lat Long so 4326 is the projection
+plot(Bolyarovo$geometry)
+
+# read in Yambol municipality boundaries and check projection
+Yam_municipality <- st_read("~/Desktop/TRAP_Oxbow/StudyAreaBoundaries/Yam_Municipalities.shp")
+st_crs(Yam_municipality)  # 32635 is the projection
+
+plot(Yam_municipality$geometry)
+Bol_mun <- Yam_municipality %>% 
+  filter(Name_en == "Bolyarovo")
+
+# plot the two datasets over one another, projecting on the fly
+plot(Bol_mun$geometry);plot(st_transform(Bolyarovo$geometry, crs = 32635), col = "red", add = TRUE)
+
+# clip to the Bolyarovo area, 237 features  remain
+Bol_mounds <- Bolyarovo %>%
+  st_transform(crs= 32635) %>% 
+  st_intersection(Bol_mun$geometry)
+
+plot(Bol_mun$geometry);plot(Bol_mounds$geometry, col = "red", add = TRUE)

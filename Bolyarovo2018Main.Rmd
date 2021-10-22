@@ -1,0 +1,343 @@
+---
+title: "Bolyarovo2018"
+author: "Adela Sobotkova"
+date: "22/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+```{r}
+library(sf)
+library(raster)
+library(tidyverse)
+```
+
+# Get data
+```{r get-mounds, eval = FALSE}
+# load data
+m18 <- read_csv("data/Bolyarovo2018clean.csv")
+m2018 <- read_sheet("https://docs.google.com/spreadsheets/d/1XCgQqd7ooP4CrDYQ2EmhR3_P1VDFpYlyTxywTB3PqWI/edit#gid=1326323943") 
+
+```
+
+
+## Make Bolyarovo mounds into an sf feature
+
+```{r make sf}
+Bolyarovo <- m2018 %>% 
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326)  # coordinates are Lat Long so 4326 is the correct projection EPSG
+plot(Bolyarovo$geometry)
+
+```
+
+
+## Read in Yambol municipality boundaries and check projection
+Find Bolyarovo municipality and extract it into a separate object
+```{r Bolyarovo municipality}
+Yam_municipality <- st_read("~/Desktop/TRAP_Oxbow/StudyAreaBoundaries/Yam_Municipalities.shp")
+st_crs(Yam_municipality)  # 32635 is the projection
+
+plot(Yam_municipality$geometry)
+Bol_mun <- Yam_municipality %>% 
+  filter(Name_en == "Bolyarovo")
+
+st_area(Bol_mun)/1000000 # in sq km
+```
+
+
+# Visualize: Plot the two datasets over one another, projecting on the fly
+```{r plot admin}
+plot(Bol_mun$geometry);plot(st_transform(Bolyarovo$geometry, crs = 32635), col = "red", add = TRUE)
+
+```
+
+## Clip mound features to the Bolyarovo area
+237 features remain
+```{r clip}
+Bol_mounds <- Bolyarovo %>%
+  st_transform(crs= 32635) %>% 
+  st_intersection(Bol_mun$geometry)
+
+plot(Bol_mun$geometry);plot(Bol_mounds$geometry, col = "red", add = TRUE)
+```
+
+# Non-spatial statistics on filtered Feature data
+
+## Features and mounds by source
+```{r source}
+m18 %>% 
+  group_by(Source) %>% 
+  tally()
+```
+```{r source-typeO}
+m18 %>% 
+  filter(Source == "Legacy verification") %>% 
+  group_by(Type_Adela) %>% 
+  tally()
+```
+
+```{r feature-type}
+m18 <- st_drop_geometry(Bol_mounds)
+# What is in the dataset?
+colnames(m2018)
+
+# Type breakdown between all and filtered mounds
+m2018 %>% 
+  group_by(Type_Adela) %>% 
+  tally()
+m18 %>% 
+  group_by(Type_Adela) %>% 
+  tally()
+
+```
+
+## Dimensions of all features by type
+```{r dimensions}
+m18$DiameterMax <- as.numeric(m18$DiameterMax)
+m18$HeightMax <- as.numeric(m18$HeightMax)
+
+m18_dim <- m18 %>% 
+  group_by(Type_Adela) %>% 
+  summarize(count =n(),
+            minHeight=min(HeightMax, na.rm=TRUE), 
+            maxHeight=max(HeightMax,na.rm=TRUE), 
+            meanHeight = round(mean(HeightMax, na.rm=TRUE), digits = 1),
+            medianHeight=median(HeightMax, na.rm=TRUE),
+            minDiam=min(DiameterMax, na.rm=TRUE), 
+            maxDiam=max(DiameterMax,na.rm=TRUE), 
+            meanDiam = round(mean(DiameterMax, na.rm=TRUE), digits = 1),
+            medianDiam=median(DiameterMax, na.rm=TRUE))
+m18_dim
+
+write_csv(m18_dim[,c(1,2,4,5,9)], "output/Bol_dimensions.csv")
+
+```
+
+## Visualising dimensions :piechart 
+```{r type-pie}
+pie(x = m18_dim$count, labels = m18_dim$Type_Adela, 
+    main = "Feature Type proportions (n=237)" )
+```
+
+## Boxplot
+And let's make a boxplot out of the most relevant categories to have a nice visual
+```{r boxplot}
+# First merge the Burial Mounds? with Uncertain Features
+m18$Type_Adela[m18$Type_Adela=="Burial Mound?"] <- "Uncertain Feature"
+
+mound_index <- which(m18$Type_Adela=="Burial Mound")
+uncertain_index <- which(m18$Type_Adela=="Uncertain Feature"| m18$Type_Adela=="Burial Mound?")
+extinct_index <- which(m18$Type_Adela=="Extinct Burial Mound")
+other <- which(m18$Type_Adela=="Other")
+
+# create boxplot of heights for mound phenomena (no surf. scatter or other)
+mounds_index <- m18[c(mound_index,extinct_index,uncertain_index, other),]
+head(mounds_index)
+mounds_index$Type_Adela <- factor(mounds_index$Type_Adela, 
+                                  levels = c("Burial Mound","Extinct Burial Mound","Uncertain Feature","Other")) 
+
+# run lines 114 - 121 below together to get 2 plots in one graphic
+par(mfrow=c(1,2))  # set plotting into a 1*2 array
+boxplot(HeightMax~Type_Adela, data = mounds_index,
+        main = "Height distribution",
+        xlab = "",  # skip name on x axis
+        ylab = "meters",   # relabel y axis
+        cex.lab = 1.3, #cex = increases symbols in plot, cex.lab - increases axis labels
+        cex.axis = 1,                      #cex.axis = increases data labels
+        las = 1) # rotate y axis 
+boxplot(DiameterMax~Type_Adela, mounds_index,  
+        main = "Diameter distribution",
+        xlab = "",
+        ylab = "meters", cex.lab = 1.3,
+        cex.axis = 1,
+        las = 1) 
+
+```
+The boxplot shows that features identified as Burial mounds enjoy higher average heights, while Extinct burial mounds and Uncertain features are persistently lower. The category of Other mostly contains military features, such as bunkers and tank emplacements, which resemble the Burial mound category in height, except that they consistently fall below <4m.
+
+# Condition of 2018 features and mounds
+
+```{r condition}
+# All features
+m18 %>% 
+  group_by(Condition) %>% 
+  summarize(Count = n()) %>% 
+  mutate(Percent = round(Count/sum(Count)*100, digits = 0)) %>% 
+  arrange(Count)
+
+# Only moundlike features
+m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" ) %>% 
+         #| Type_Adela == "Uncertain Feature") %>% 
+  group_by(Condition) %>% 
+  summarize(Count = n()) %>% 
+  mutate(Percent = round(Count/sum(Count)*100, digits = 0))# %>% arrange(Count)
+```
+
+```{r}
+# Moundlike and other features
+m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" |
+           Type_Adela == "Uncertain Feature" |
+           Type_Adela == "Other") %>% 
+  group_by(Condition) %>% 
+  summarize(Count = n()) %>% 
+  mutate(Percent = round(Count/sum(Count)*100, digits = 0)) %>% arrange(Count)
+```
+
+
+
+# Let's explore the Bunkers
+```{r bunker-find}
+# Check for Bunkers and Military items
+grep("military", m18$PrincipalSourceOfImpact) # this field does not contain 'military' activity
+m_note <- grep("[Mm]ilit*|[Bb]unker|[Tt]ank*", m18$PrincipalSourceOfImpactNote) # 21 records 
+m_desc <- grep("[Mm]ilit*|[Bb]unker|[Tt]ank*", m18$DescriptionOfMoundOrLocale) # 40 mentions
+length(which(m_note %in% m_desc)) # 16 overlapping , 5 non-overlapping
+```
+There are 40 mentions of military objects, whether bunkers, tank emplacements or trenches in the 2018 records, most of these in the description of the feature or locale.
+
+```{r bunker-source}
+
+m18 %>% 
+  slice(bunkers) %>% 
+  #filter(Type_Adela == "Other") %>% 
+  group_by(Source) %>% 
+  tally()
+```
+Most of the military activity (27 features out of 45) was noted en route, while 16 were documented in place of map symbols/former mounds.
+
+
+```{r bunkers-type}
+bunkers <- unique(c(m_note,m_desc)) # 45 military features
+
+m18[m18$Type_Adela == "Other",]%in%m18[bunkers,] # none
+
+## How are military features encoded in the Feature type column?
+m18 %>% 
+  slice(bunkers) %>% 
+ # dplyr::select(Type_Adela, createdBy) %>% 
+  group_by(Type_Adela) %>% 
+  tally()
+
+```
+
+Most of the military features (24 out of 45) are encoded as "Other" Feature type, but 8 are marked as "mounds", 7 as extinct mounds and 6 are uncertain or feature a surface scatter. The latter is not surprising as trench excavation inevitably brings up buried materials.
+
+The inconsistency in Feature type allocation relates to the decision to mark map features as mounds or extinct mounds, and features discovered en-route that don't have a symbol in the map as 'other'. The following chunk shows that most features from maps - whose source is marked as "legacy" - are in fact mounds, extinct mounds, or uncertain features (14 of 16); while features discovered en-route are dominated by "other (22 of 26).
+
+```{r bunker-legacy}
+m18 %>% 
+  slice(bunkers) %>% 
+  dplyr::filter(Source == "Legacy verification") %>% 
+  group_by(Type_Adela) %>% 
+  tally()
+```
+```{r bunker-survey}
+m18 %>% 
+  slice(bunkers) %>% 
+  dplyr::filter(Source == "Survey") %>% 
+  group_by(Type_Adela) %>% 
+  tally()
+```
+
+This fine scaling along Feature type will probably be reflected in the bunker Condition.
+
+
+## Bunker Condition
+
+
+```{r bunker-condition}
+# Let's check how bunker Condition is encoded
+m18 %>% 
+  slice(bunkers) %>% 
+  #dplyr::select(Condition, Type_Adela, createdBy) %>% 
+  group_by(Condition) %>% 
+  tally()
+
+```
+Most (22 of 45) bunkers have a condition of "0-No observation", while 16 are marked with 5 - extinct and 4 - seriously damaged and others a variation of 1-3. "0-No observation" is assigned to most of the 'Other' features (17) but also Surface scatter(1) and Uncertain features(4). Extinct Burial mounds with military activity are always 5, while Burial Mounds range from 1 - 4. The variety of condition indicates that teams recovered a range of damage in the field, from total annihilation of mound by replacing it with a bunker to various cuts by trenches and tank emplacements.   
+
+```{r bunker-condition-type}
+m18 %>% 
+  slice(bunkers) %>% 
+  #dplyr::select(Condition, Type_Adela, createdBy) %>% 
+  group_by(Type_Adela, Condition) %>% 
+  tally()
+```
+
+
+
+## Histogram of Condition : Filtering  0 - No observation
+Let's plot condition as a histogram. We need to convert to a factor, and do something with the 0. We have two options. 
+Either we convert zero into NA or we assume that 0 - No observation in "Other" features from the map means that a mound has been replaced with a bunker, and assign it the value of 5. Lets try both options:
+
+
+### all 0 to NAs
+First, lets' convert all 0 into NAs
+```{r condition-hist-NA}
+m18na <- m18 %>%
+  mutate(Condition = str_extract(Condition, "\\d")) %>%
+  mutate(Condition = case_when(Condition == 0 ~ "NA",
+                             #  Condition == 6 ~ "5",
+                               Condition != 0 ~ Condition),
+         Condition = factor(as.numeric(Condition), levels = c(1,2,3,4,5, NA))) 
+
+plot(m18na$Condition) # Condition breakdown across 237 features
+```
+
+### Bunker 0 to NAs
+And second option, converting 0 to 5 to indicate  absolute damage in "Other" features that originate from maps. All other instances of 0 are converted to NA.
+There are 15 map features (legacy) marked as Other, containing military structures.
+
+```{r condition-hist-NA}
+# Inspect bunkers that overlay map features
+bunkers_from_maps <- m18 %>%
+  filter(Type_Adela == "Other" & Source == "Legacy verification") %>% 
+  dplyr::select(identifier) %>% deframe()
+ 
+length(which(m18$identifier %in% bunkers_from_maps)) # 15 map features marked as Other are miitary features
+
+# Condition convert these map bunkers condition to 5 - extinct
+bunker0to5 <- m18 %>%
+  filter(Type_Adela == "Other" & Source == "Legacy verification") %>% 
+  mutate(Condition = str_extract(Condition, "\\d")) %>%
+  mutate(Condition = as.numeric(Condition)) %>% 
+  mutate(Condition = case_when(Condition == 0 ~ 5,
+                                Condition != 0 ~ Condition),
+  Condition = factor(as.numeric(Condition), levels = c(1,2,3,4,5, NA))) 
+bunker0to5$Condition
+
+# update the dataset where 0 were NA with the 15 rows where condition is converted to 5-extinct
+m18nato5 <- m18na %>% 
+  rows_update(y=bunker0to5, by = "identifier")
+m18nato5$Condition
+
+# see how this change in condition impacts on the histogram
+plot(m18nato5$Condition,
+     main = "All zero condition values in verified map features converted to 5-extinct")
+
+
+```
+The 15 Other features can now be seen boosting the column of 5 - extinct.
+
+
+### All 0 to 5- extinct (not only bunkers)
+Option 3: convert all 0 to 5
+```{r}
+m18allto5 <- m18 %>%
+  mutate(Condition = str_extract(Condition, "\\d")) %>%
+  mutate(Condition = as.numeric(Condition)) %>% 
+  mutate(Condition = case_when(Condition == 0 ~ 5,
+                                Condition != 0 ~ Condition),
+  Condition = factor(as.numeric(Condition), levels = c(1,2,3,4,5))) 
+
+plot(m18allto5$Condition, main = "All zero condition values converted to 5-extinct")
+```
+
