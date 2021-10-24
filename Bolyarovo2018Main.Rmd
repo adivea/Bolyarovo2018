@@ -121,7 +121,17 @@ BalkansBol <- tm_shape(Balkans$geometry, bbox = BalkanBox_small)+
   tm_shape(Bol_mun$geometry) +
   tm_polygons(col = "black", border.col = "black")+
   tm_shape(YambolBox) +
-  tm_polygons(alpha = 0, border.col = "red")
+  tm_polygons(alpha = 0, border.col = "red")+
+  tm_scale_bar(breaks = c(0, 100,200),
+               position = c("LEFT", "bottom"),
+               text.size = 1) +
+  tm_compass(position = c("RIGHT", "bottom"),
+             type = "rose", 
+             size = 2) +
+  tm_credits(text = "A. Sobotkova, 2021") +
+  tm_layout(#main.title = "Bolyarovo Study Area",
+            bg.color = "darkgrey",
+            inner.margins = c(0, 0, 0, 0))
 BalkansBol
 ```
 
