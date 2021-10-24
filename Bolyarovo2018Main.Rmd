@@ -25,7 +25,7 @@ m2018 <- read_sheet("https://docs.google.com/spreadsheets/d/1XCgQqd7ooP4CrDYQ2Em
 ```
 
 
-## Make Bolyarovo mounds into an sf feature
+# Get spatial : Make Bolyarovo mounds into an sf feature
 
 ```{r make sf}
 Bolyarovo <- m2018 %>% 
@@ -34,6 +34,8 @@ plot(Bolyarovo$geometry)
 
 ```
 
+
+# Get additional spatial data
 
 ## Read in Yambol municipality boundaries and check projection
 Find Bolyarovo municipality and extract it into a separate object
@@ -46,17 +48,52 @@ Bol_mun <- Yam_municipality %>%
   filter(Name_en == "Bolyarovo")
 
 st_area(Bol_mun)/1000000 # in sq km
+
+
+Yam <- Yam_municipality %>% 
+  group_by() %>% 
+  summarize()
+Yam
+st_area(Yam)/1000000
 ```
 
+## Read in BG boundaries and make bboxes
+Check that everything is UTM35N 
+```{r}
+Bg_border <- st_read("~/Desktop/TRAP_Oxbow/TopoData/Bulgaria_Border.shp")
+Bg <- st_read("~/Desktop/TRAP_Oxbow/TopoData/BGR_adm0.shp")
+Bg <- st_transform(Bg, crs = 32635)
+Balkans <- st_read("~/Desktop/TRAP_Oxbow/TopoData/Neighbors.shp")
+Balkans <- st_transform(Balkans, crs = 32635)
+Balkans <- st_simplify(Balkans, dTolerance = 1000)
+plot(Balkans$geometry)
+head(Balkans)
 
-# Visualize: Plot the two datasets over one another, projecting on the fly
+BalkanBox <- st_bbox(Balkans$geometry[-5,])
+YambolBox <- st_make_grid(st_buffer(Yam$geometry, 15000), n=1)
+
+```
+
+## Manual bounding box
+```{r manual-box, eval=FALSE}
+plot(Balkans$geometry)
+e <- drawExtent(show = TRUE, col = "red")
+BalkanBox_small <- as(e, "SpatialPolygons")
+plot(Balkans$geometry);plot(BalkanBox_small, add =TRUE, border = "red")
+```
+
+# Wrangle mounds : Clip to Bolyarovo
+Let's visualize mounds and study area: Plot the two datasets over one another, projecting on the fly, checking if anything needs clipping
 ```{r plot-boundaries}
+Bolyarovo #282 features
 plot(Bol_mun$geometry);plot(st_transform(Bolyarovo$geometry, crs = 32635), col = "red", add = TRUE)
 
 ```
+The training data from day one and another northern exploration results fall into the Elhovo and Tundzha municipality so need to be clipped away, as we can only report on Bolyarovo.
+
 
 ## Clip mound features to the Bolyarovo area
-237 features remain
+
 ```{r clip}
 Bol_mounds <- Bolyarovo %>%
   st_transform(crs= 32635) %>% 
@@ -64,8 +101,54 @@ Bol_mounds <- Bolyarovo %>%
 
 plot(Bol_mun$geometry);plot(Bol_mounds$geometry, col = "red", add = TRUE)
 ```
+237 features remain from the 282 total features recorded in 2018
 
-# Non-spatial statistics on filtered Feature data
+
+
+# Make maps
+
+## Overview of Balkans and Bolyarovo
+```{r balkans}
+library(tmap)
+BalkansBol <- tm_shape(Balkans$geometry, bbox = BalkanBox_small)+
+  tm_polygons(col = "white", border.col = "darkgrey")+
+  tm_shape(Bg)+
+  tm_polygons(col = "lightgrey", 
+              border.col = "darkgrey",
+              lwd = 1 )+
+  tm_shape(Yam$geometry) +
+  tm_polygons(col = "lightgrey", border.col = "darkgrey") +
+  tm_shape(Bol_mun$geometry) +
+  tm_polygons(col = "black", border.col = "black")+
+  tm_shape(YambolBox) +
+  tm_polygons(alpha = 0, border.col = "red")
+BalkansBol
+```
+
+## Bolyarovo in Yambol
+
+```{r yambol}
+BgYamBol <- tm_shape(Bg_border)+
+  tm_lines(col = "darkgrey", 
+              lwd = 2 )+
+  tm_shape(Yam_municipality$geometry) +
+  tm_polygons(col = "darkgrey", border.col = "darkgrey") +
+  tm_shape(Bol_mun$geometry) +
+  tm_polygons(col = "black", border.col = "black")
+BgYamBol
+
+YamBol <- tm_shape(Yam)+
+  tm_polygons(col = "white", 
+              border.col = "grey",
+              lwd = 2 )+
+  tm_shape(Bol_mun$geometry) +
+  tm_polygons(col = "grey", border.col = "darkgrey")
+YamBol
+```
+
+
+
+# Non-spatial statistics on clipped/filtered Feature data
 
 ## Features and mounds by source
 ```{r source}
