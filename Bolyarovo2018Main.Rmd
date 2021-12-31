@@ -159,6 +159,14 @@ YamBol
 
 
 # Non-spatial statistics on clipped/filtered Feature data
+## Daily progress
+
+```{r}
+m %>% 
+  group_by(Date, createdBy) %>% 
+  tally()
+282/34 # ca 8 mounds per team per day
+```
 
 ## Features and mounds by source
 ```{r source}
@@ -166,7 +174,8 @@ m18 %>%
   group_by(Source) %>% 
   tally()
 ```
-```{r source-typeO}
+
+```{r source-type}
 m18 %>% 
   filter(Source == "Legacy verification") %>% 
   group_by(Type_Adela) %>% 
@@ -210,7 +219,7 @@ write_csv(m18_dim[,c(1,2,4,5,9)], "output/Bol_dimensions.csv")
 
 ```
 
-## Visualising dimensions :piechart 
+## Visualising dimensions : piechart 
 ```{r type-pie}
 pie(x = m18_dim$count, labels = m18_dim$Type_Adela, 
     main = "Feature Type proportions (n=237)" )
@@ -269,7 +278,24 @@ m18 %>%
          #| Type_Adela == "Uncertain Feature") %>% 
   group_by(Condition) %>% 
   summarize(Count = n()) %>% 
-  mutate(Percent = round(Count/sum(Count)*100, digits = 0))# %>% arrange(Count)
+  mutate(Percent = round(Count/sum(Count)*100, digits = 0))# %>% # arrange(Count) 
+  
+# Histogram of moundlike features
+m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" ) %>% 
+         #| Type_Adela == "Uncertain Feature") %>% 
+  ggplot(aes(x = Condition, fill = Type_Adela)) +
+  geom_bar(width = 0.75) +
+  labs(x = NULL, y = NULL, fill = "Feature Type") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(levels(as.factor(m18$Condition))))+
+  theme_bw() +
+  scale_fill_grey()+
+  theme(axis.text = element_text(size = 12),
+        legend.position=c(.75,.85))
+
+# print the 
 ```
 
 ```{r}

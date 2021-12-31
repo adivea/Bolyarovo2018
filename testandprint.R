@@ -191,7 +191,25 @@ boxplot(DiameterMax~Type_Adela, mounds_index,
         ylab = "meters", cex.lab = 1.3,
         cex.axis = 1,
         las = 1) 
+##################################################
+###  CONDITION BARPLOT FOR PRINTING
 
+
+pdf("output/ConditionBar.pdf", width = 7, height = 3.5)
+m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" ) %>% 
+  #| Type_Adela == "Uncertain Feature") %>% 
+  ggplot(aes(x = Condition, fill = Type_Adela)) +
+  geom_bar(width = 0.75) +
+  labs(x = NULL, y = NULL, fill = "Feature Type") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(levels(as.factor(m18$Condition))))+
+  theme_bw() +
+  scale_fill_grey()+
+  theme(axis.text = element_text(size = 12),
+        legend.position=c(.75,.85))
+dev.off()
 ####################################################
 ### Wish to try a Shiny application? 
 ### Run the 02_interactive_data_explorer.R
@@ -327,3 +345,21 @@ Blgmap %>%
   addCircleMarkers(data = st_transform(Bol_mounds$geometry, crs = 4326))
 
 
+### TMAPS
+
+tm_shape(Balkans$geometry, bbox = BalkanBox)+
+  tm_polygons(col = "white", border.col = "darkgrey")+
+  tm_shape(Bg)+
+  tm_polygons(col = "lightgrey", 
+              border.col = "darkgrey",
+              lwd = 1 )+
+  tm_shape(Yam$geometry) +
+  tm_polygons(col = "lightgrey", border.col = "darkgrey") +
+  tm_shape(Bol_mun$geometry) +
+  tm_polygons(col = "black", border.col = "black")+
+  tm_shape(YambolBox) +
+  tm_polygons(alpha = 0, border.col = "red")
+
+# Draw bounding box  / extent manually
+plot(Balkans$geometry)
+e <- drawExtent(show = TRUE, col = "red")
