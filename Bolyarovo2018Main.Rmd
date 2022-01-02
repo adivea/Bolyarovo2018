@@ -243,23 +243,51 @@ mounds_index$Type_Adela <- factor(mounds_index$Type_Adela,
                                   levels = c("Burial Mound","Extinct Burial Mound","Uncertain Feature","Other")) 
 
 # run lines 114 - 121 below together to get 2 plots in one graphic
+pdf("output/Figure03bw.pdf", width = 10, height = 7)
 par(mfrow=c(1,2))  # set plotting into a 1*2 array
 boxplot(HeightMax~Type_Adela, data = mounds_index,
         main = "Height distribution",
         xlab = "",  # skip name on x axis
         ylab = "meters",   # relabel y axis
-        cex.lab = 1.3, #cex = increases symbols in plot, cex.lab - increases axis labels
+        cex.lab = 1, #cex = increases symbols in plot, cex.lab - increases axis labels
         cex.axis = 1,                      #cex.axis = increases data labels
-        las = 1) # rotate y axis 
+        las = 2) # rotate x axis 
+
 boxplot(DiameterMax~Type_Adela, mounds_index,  
         main = "Diameter distribution",
         xlab = "",
-        ylab = "meters", cex.lab = 1.3,
+        ylab = "", cex.lab = 1,
         cex.axis = 1,
-        las = 1) 
+        las = 2) 
 
 ```
 The boxplot shows that features identified as Burial mounds enjoy higher average heights, while Extinct burial mounds and Uncertain features are persistently lower. The category of Other mostly contains military features, such as bunkers and tank emplacements, which resemble the Burial mound category in height, except that they consistently fall below <4m.
+
+### Vertical Boxplots
+```{r better_boxplot}
+# Attempt with swapping coord_flip - for more readable labels 
+
+require(gridExtra)
+hplot <- ggplot(mounds_index, aes(Type_Adela, HeightMax))+
+  geom_boxplot(alpha = 0.4)+
+  labs(x = NULL, y = "Height (m)") +
+  scale_x_discrete(limits = rev(levels(as.factor(mounds_index$Type_Adela))))+
+  theme_bw()+
+  coord_flip()
+#theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+dplot <- ggplot(mounds_index, aes(Type_Adela, DiameterMax))+
+  # geom_violin(color = "salmon")+
+  # geom_jitter(color = "salmon")+
+  geom_boxplot(alpha = 0.4)+
+  labs(x = NULL, y = "Diameter (m)") +
+  scale_x_discrete(limits = rev(levels(as.factor(mounds_index$Type_Adela))))+
+  theme_bw()+
+  coord_flip()
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+grid.arrange(hplot, dplot, ncol=1)
+```
+
 
 # Condition of 2018 features and mounds
 
@@ -308,6 +336,23 @@ m18 %>%
   group_by(Condition) %>% 
   summarize(Count = n()) %>% 
   mutate(Percent = round(Count/sum(Count)*100, digits = 0)) %>% arrange(Count)
+
+# Histogram of moundlike and military features
+m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" |
+           Type_Adela == "Uncertain Feature" | 
+           Type_Adela == "Other" )  %>% # 207 features
+  ggplot(aes(x = Condition, fill = Type_Adela)) +
+  geom_bar(width = 0.75) +
+  labs(x = NULL, y = NULL, fill = "Type:") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(levels(as.factor(m18$Condition))))+
+  theme_bw() +
+  scale_fill_grey()+
+  theme(axis.text = element_text(size = 12),
+        legend.position="bottom")
+        #legend.position=c(.80,.68))
 ```
 
 
@@ -327,6 +372,12 @@ There are 40 mentions of military objects, whether bunkers, tank emplacements or
 m18 %>% 
   slice(bunkers) %>% 
   #filter(Type_Adela == "Other") %>% 
+  group_by(Source) %>% 
+  tally()
+
+m18 %>% 
+  #slice(bunkers) %>% 
+  filter(Type_Adela == "Uncertain Feature") %>% 
   group_by(Source) %>% 
   tally()
 ```

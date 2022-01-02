@@ -141,9 +141,9 @@ write_csv(Source_stats, 'Ele_Sourcestats.csv')
 m2018$Type[m2018$Type=="Burial Mound?"] <- "Uncertain Feature"
 
 TypeM
-m2018_index <- which(m2018$Type=="Burial Mound")
-uncertain_index <- which(m2018$Type=="Uncertain Feature"| m2018$Type=="Burial Mound?")
-extinct_index <- which(m2018$Type=="Extinct Burial Mound")
+m2018_index <- which(m2018$Type_Adela=="Burial Mound")
+uncertain_index <- which(m2018$Type_Adela=="Uncertain Feature"| m2018$Type_Adela=="Burial Mound?")
+extinct_index <- which(m2018$Type_Adela=="Extinct Burial Mound")
 
 # create boxplot of heights for mound phenomena (no surf. scatter or other)
 mound_index <- m2018[c(m2018_index,extinct_index,uncertain_index),]
@@ -177,6 +177,7 @@ boxplot(DiameterMax~Type, mound_index,
 
 dev.off()
 
+pdf("output/Figure03bw.pdf", width = 7, height = 3.5)
 par(mfrow=c(1,2))  # set plotting into a 1*2 array
 boxplot(HeightMax~Type_Adela, data = mounds_index,
         main = "Height distribution",
@@ -191,11 +192,36 @@ boxplot(DiameterMax~Type_Adela, mounds_index,
         ylab = "meters", cex.lab = 1.3,
         cex.axis = 1,
         las = 1) 
+dev.off()
+
+
+
+#########################BOXPLOT VERTICAL 
+
+require(gridExtra)
+hplot <- ggplot(mounds_index, aes(Type_Adela, HeightMax))+
+  geom_boxplot(alpha = 0.4)+
+  labs(x = NULL, y = "Height (m)") +
+  scale_x_discrete(limits = rev(levels(as.factor(mounds_index$Type_Adela))))+
+  theme_bw()+
+  coord_flip()
+#theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+dplot <- ggplot(mounds_index, aes(Type_Adela, DiameterMax))+
+  # geom_violin(color = "salmon")+
+  # geom_jitter(color = "salmon")+
+  geom_boxplot(alpha = 0.4)+
+  labs(x = NULL, y = "Diameter (m)") +
+  scale_x_discrete(limits = rev(levels(as.factor(mounds_index$Type_Adela))))+
+  theme_bw()+
+  coord_flip()
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+grid.arrange(hplot, dplot, ncol=1)
 ##################################################
 ###  CONDITION BARPLOT FOR PRINTING
 
-
-pdf("output/ConditionBar.pdf", width = 7, height = 3.5)
+# Figure 07
+pdf("output/Figure07bw.pdf", width = 7, height = 3.5)
 m18 %>% 
   filter(Type_Adela == "Burial Mound" |
            Type_Adela == "Extinct Burial Mound" ) %>% 
@@ -209,6 +235,24 @@ m18 %>%
   scale_fill_grey()+
   theme(axis.text = element_text(size = 12),
         legend.position=c(.75,.85))
+dev.off()
+
+# FIgure 08
+pdf("output/Figure08bw.pdf", width = 7, height = 4)
+m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" |
+           Type_Adela == "Uncertain Feature" | 
+           Type_Adela == "Other" )  %>% # 207 features
+  ggplot(aes(x = Condition, fill = Type_Adela)) +
+  geom_bar(width = 0.75) +
+  labs(x = NULL, y = NULL, fill = "Type:") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(levels(as.factor(m18$Condition))))+
+  theme_bw() +
+  scale_fill_grey()+
+  theme(axis.text = element_text(size = 12),
+        legend.position="bottom")
 dev.off()
 ####################################################
 ### Wish to try a Shiny application? 
