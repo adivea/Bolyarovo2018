@@ -177,7 +177,7 @@ boxplot(DiameterMax~Type, mound_index,
 
 dev.off()
 
-pdf("output/Figure03bw.pdf", width = 7, height = 3.5)
+pdf("output/Figure07bw.pdf", width = 7, height = 3.5)
 par(mfrow=c(1,2))  # set plotting into a 1*2 array
 boxplot(HeightMax~Type_Adela, data = mounds_index,
         main = "Height distribution",
@@ -196,12 +196,18 @@ dev.off()
 
 
 
-#########################BOXPLOT VERTICAL 
+######################### BOXPLOT VERTICAL  Figure 07 
+# Help wtih colors: https://stackoverflow.com/questions/47537943/conflict-between-scale-fill-manual-and-scale-x-discrete-in-a-bar-plot
 
 require(gridExtra)
 hplot <- ggplot(mounds_index, aes(Type_Adela, HeightMax))+
   geom_boxplot(alpha = 0.4)+
   labs(x = NULL, y = "Height (m)") +
+  # there is conflict between the scale_fill_manual and scale_x_discrete()
+  # scale_fill_manual(values = c("Burial Mound" = "seagreen3",
+  #                              "Extinct Burial Mound" ="indianred1", 
+  #                              "Uncertain Feature"= "turquoise4", 
+  #                              "Other"= "thistle3"))+
   scale_x_discrete(limits = rev(levels(as.factor(mounds_index$Type_Adela))))+
   theme_bw()+
   coord_flip()
@@ -218,10 +224,10 @@ theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
 grid.arrange(hplot, dplot, ncol=1)
 ##################################################
-###  CONDITION BARPLOT FOR PRINTING
+###  CONDITION BARPLOT FOR PRINTING Figure 08
 
-# Figure 07
-pdf("output/Figure07bw.pdf", width = 7, height = 3.5)
+# Figure 08a
+pdf("output/Figure08a_bw.pdf", width = 7, height = 3.5) # use 700 by 400 pix in .tiff
 m18 %>% 
   filter(Type_Adela == "Burial Mound" |
            Type_Adela == "Extinct Burial Mound" ) %>% 
@@ -234,10 +240,11 @@ m18 %>%
   theme_bw() +
   scale_fill_grey()+
   theme(axis.text = element_text(size = 12),
-        legend.position=c(.75,.85))
+       legend.position=c(.75,.85))
+  #legend.position="bottom")
 dev.off()
 
-# FIgure 08
+# FIgure 08b
 pdf("output/Figure08bw.pdf", width = 7, height = 4)
 m18 %>% 
   filter(Type_Adela == "Burial Mound" |
@@ -254,6 +261,45 @@ m18 %>%
   theme(axis.text = element_text(size = 12),
         legend.position="bottom")
 dev.off()
+
+
+
+### Combination Figure 8
+
+Fig8a <- m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" ) %>% 
+  #| Type_Adela == "Uncertain Feature") %>% 
+  ggplot(aes(x = Condition, fill = Type_Adela)) +
+  geom_bar(width = 0.75) +
+  labs(x = NULL, y = NULL, fill = "Feature Type") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(levels(as.factor(m18$Condition))))+
+  theme_bw() +
+  scale_fill_manual(values = c("seagreen3","indianred1"))+
+  geom_text(x=6, y=38, label="A")+
+  theme(axis.text = element_text(size = 12),
+        #  legend.position=c(.75,.85))
+        legend.position="bottom")
+
+Fig8b <- m18 %>% 
+  filter(Type_Adela == "Burial Mound" |
+           Type_Adela == "Extinct Burial Mound" |
+           Type_Adela == "Uncertain Feature" | 
+           Type_Adela == "Other" )  %>% # 207 features
+  ggplot(aes(x = Condition, fill = Type_Adela)) +
+  geom_bar(width = 0.75) +
+  labs(x = NULL, y = NULL, fill = "Type:") +
+  coord_flip() +
+  scale_x_discrete(limits = rev(levels(as.factor(m18$Condition))))+
+  theme_bw() +
+  #scale_fill_grey()+
+  scale_fill_manual(values = c("seagreen3","indianred1", "turquoise4","thistle3"))+
+  geom_text(x=6, y=48, label="B") +
+  theme(axis.text = element_text(size = 12),   legend.position="bottom")
+
+require(gridExtra)
+grid.arrange(Fig8a, Fig8b, ncol=1) # print with 700x585px
 ####################################################
 ### Wish to try a Shiny application? 
 ### Run the 02_interactive_data_explorer.R
